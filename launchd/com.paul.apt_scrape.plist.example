@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+
+    <!--
+      Label: unique identifier for this job.
+      Convention: reverse-DNS style. Must be unique per user.
+      Tip: keep it stable; you’ll reference it with launchctl.
+    -->
+    <key>Label</key>
+    <string>com.YOURNAME.apt-scrape</string>
+
+    <!--
+      ProgramArguments: the command launchd runs.
+      IMPORTANT:
+        - Use absolute paths (no ~).
+        - Prefer /bin/bash (or /bin/zsh) + an absolute script path.
+        - Ensure the script is executable: chmod +x /ABSOLUTE/PATH/TO/run_apt_scrapes.sh
+    -->
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/bash</string>
+      <string>/ABSOLUTE/PATH/TO/apt_scrape/run_apt_scrapes.sh</string>
+    </array>
+
+    <!--
+      Run schedule (local system time): every day at HH:MM.
+      Example below: 11:55 AM.
+      Change Hour/Minute as needed.
+      Notes:
+        - launchd uses the machine’s local timezone.
+        - If the machine is asleep at that time, it may run at next wake depending on settings.
+    -->
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>11</integer>
+      <key>Minute</key>
+      <integer>55</integer>
+    </dict>
+
+    <!--
+      RunAtLoad:
+        - true means it will run once immediately when loaded (and also on login for LaunchAgents).
+        - If you ONLY want scheduled runs, set this to false.
+    -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!--
+      StandardOutPath / StandardErrorPath:
+        - Where stdout/stderr logs go.
+        - Use a writable absolute path.
+        - Ensure the directory exists (launchd will not create nested directories).
+      Tip: keep logs in a project-level logs/ folder or ~/Library/Logs/...
+    -->
+    <key>StandardOutPath</key>
+    <string>/ABSOLUTE/PATH/TO/apt_scrape/logs/launchd.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>/ABSOLUTE/PATH/TO/apt_scrape/logs/launchd.err</string>
+
+    <!--
+      Optional quality-of-life settings (uncomment if you want them):
+
+      1) WorkingDirectory:
+         Makes relative paths inside your script behave predictably.
+
+      <key>WorkingDirectory</key>
+      <string>/ABSOLUTE/PATH/TO/apt_scrape</string>
+
+      2) EnvironmentVariables:
+         If your script depends on PATH, PYTHONPATH, etc.
+         (launchd runs with a minimal environment)
+
+      <key>EnvironmentVariables</key>
+      <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      </dict>
+
+      3) KeepAlive:
+         If you truly want it to restart when it exits/crashes.
+         WARNING: do NOT use this for a daily job, can lead to infinite loop.
+
+      <key>KeepAlive</key>
+      <false/>
+    -->
+
+  </dict>
+</plist>
