@@ -29,6 +29,7 @@ This enables tracking:
 
 ## Project structure
 
+```
 apt_scrape/
 ├── apt_scrapes.ipynb              # Main scraper notebook
 ├── run_apt_scrapes.sh.example     # Example runner script (safe to commit)
@@ -36,5 +37,4 @@ apt_scrape/
 ├── .gitignore
 ├── runs/                          # Daily executed notebooks (ignored)
 └── run_state/                     # Lock + marker files (ignored)
-
-
+```
