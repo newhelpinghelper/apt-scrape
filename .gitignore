@@ -1,0 +1,31 @@
+# Private config
+config.local.json
+
+# Data outputs
+*.csv
+data/
+outputs/
+
+# Logs
+*.log
+logs/
+launchd.out
+launchd.err
+*.out
+*.err
+
+# Runtime artifacts
+runs/
+run_state/
+*.lock
+*.lockdir
+
+# Local runner (has real paths)
+run_apt_scrapes.sh
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/

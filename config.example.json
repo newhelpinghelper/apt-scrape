@@ -1,0 +1,5 @@
+{
+  "BASE_URL": "https://example.com",
+  "FLOORPLANS_PATH": "/floorplans",
+  "OUTPUT_CSV": "prices.csv"
+}

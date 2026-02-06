@@ -1,0 +1,130 @@
+#!/bin/bash
+set -euo pipefail
+
+###############################################################################
+# run_apt_scrapes.sh (TEMPLATE)
+#
+# Purpose:
+#   Run a Jupyter notebook on a schedule (e.g., via launchd) with:
+#     - predictable PATH under launchd
+#     - logging to a file
+#     - idempotency guard (don’t run twice in the same day)
+#     - (optional) global timeout to prevent hangs
+#     - safer output to runs/ instead of --inplace
+#
+# Usage:
+#   1) Copy this file to run_apt_scrapes.sh (real, private) and edit placeholders.
+#   2) chmod +x /ABSOLUTE/PATH/TO/run_apt_scrapes.sh
+#
+# Notes:
+#   - launchd runs with a minimal environment, so we set PATH explicitly.
+#   - Prefer absolute paths for anything launchd touches.
+###############################################################################
+
+# ---- PATH: adjust if you use Homebrew, conda, etc. ----
+export PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:${PATH}"
+
+# ---- USER CONFIG (placeholders) ----
+# Absolute path to your project directory (no ~ in launchd contexts).
+PROJECT_DIR="/ABSOLUTE/PATH/TO/apt_scrape"
+
+# Name of the notebook to execute (must exist inside PROJECT_DIR).
+NOTEBOOK_NAME="apt_scrapes.ipynb"
+
+# If using conda, set the path to conda's activate script and environment name.
+# If you don't use conda, leave CONDA_ACTIVATE as "" and/or remove the block below.
+CONDA_ACTIVATE="/ABSOLUTE/PATH/TO/miniconda3/bin/activate"
+CONDA_ENV_NAME="base"
+
+# Logs and run-state (kept inside the project by default; should be gitignored).
+LOG_FILE="${PROJECT_DIR}/apt_scrape.log"
+RUN_STATE_DIR="${PROJECT_DIR}/run_state"
+MARKER_FILE="${RUN_STATE_DIR}/last_run_date.txt"
+
+mkdir -p "${RUN_STATE_DIR}"
+
+TODAY="$(date +'%Y-%m-%d')"
+
+# ---- required private config ----
+if [[ ! -f "${PROJECT_DIR}/config.local.json" ]]; then
+  echo "[$(date)] ERROR: missing config.local.json (copy config.example.json -> config.local.json)." >> "${LOG_FILE}"
+  exit 1
+fi
+
+# ---------- guard against duplicate runs ----------
+# Why: launchd can run at load/login + schedule, or you might load twice.
+if [[ -f "${MARKER_FILE}" ]] && grep -q "${TODAY}" "${MARKER_FILE}"; then
+  echo "[$(date)] Already ran today (${TODAY}); exiting." >> "${LOG_FILE}"
+  exit 0
+fi
+
+echo "[$(date)] Starting apt scrape..." >> "${LOG_FILE}"
+
+# ---- activate environment (conda example) ----
+# launchd often won't have your shell init files loaded, so activation must be explicit.
+if [[ -n "${CONDA_ACTIVATE}" ]] && [[ -f "${CONDA_ACTIVATE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${CONDA_ACTIVATE}" "${CONDA_ENV_NAME}"
+else
+  echo "[$(date)] WARNING: conda activate script not found at ${CONDA_ACTIVATE}" >> "${LOG_FILE}"
+  echo "[$(date)] Proceeding without conda activation." >> "${LOG_FILE}"
+fi
+
+# ---- run the notebook ----
+cd "${PROJECT_DIR}"
+
+# Ensure jupyter exists (helpful error message instead of silent failure).
+if ! command -v jupyter >/dev/null 2>&1; then
+  echo "[$(date)] ERROR: 'jupyter' not found on PATH. Fix PATH or env activation." >> "${LOG_FILE}"
+  exit 1
+fi
+
+# Write executed notebook to runs/ (safer than --inplace)
+OUT_DIR="${PROJECT_DIR}/runs"
+mkdir -p "${OUT_DIR}"
+OUT_NB="${OUT_DIR}/apt_scrapes_run_${TODAY}.ipynb"
+
+# Optional global timeout (prevents multi-day hangs)
+GTIMEOUT="$(command -v gtimeout || true)"
+TIMEOUT_MINUTES="20"
+
+set +e
+if [[ -n "${GTIMEOUT}" ]]; then
+  "${GTIMEOUT}" "${TIMEOUT_MINUTES}m" jupyter nbconvert \
+    --execute \
+    --to notebook \
+    --output "${OUT_NB}" \
+    "${NOTEBOOK_NAME}" >> "${LOG_FILE}" 2>&1
+else
+  jupyter nbconvert \
+    --execute \
+    --to notebook \
+    --output "${OUT_NB}" \
+    "${NOTEBOOK_NAME}" >> "${LOG_FILE}" 2>&1
+fi
+RC=$?
+set -e
+
+if [[ $RC -ne 0 ]]; then
+  echo "[$(date)] ERROR: nbconvert failed (exit code ${RC})." >> "${LOG_FILE}"
+  exit $RC
+fi
+
+# Mark that today's run succeeded (only after success)
+echo "${TODAY}" > "${MARKER_FILE}"
+echo "[$(date)] Finished apt scrape." >> "${LOG_FILE}"
+
+###############################################################################
+# Notes / options:
+#
+# - To run in-place (NOT recommended; overwrites the source notebook):
+#   jupyter nbconvert --execute --to notebook --inplace "${NOTEBOOK_NAME}" >> "${LOG_FILE}" 2>&1
+#
+# - To install gtimeout:
+#   brew install coreutils
+#
+# - If you want to prevent overlapping runs, add a lock (mkdir lock example):
+#   LOCK_DIR="${RUN_STATE_DIR}/apt_scrape.lockdir"
+#   if ! mkdir "${LOCK_DIR}" 2>/dev/null; then exit 0; fi
+#   trap 'rmdir "${LOCK_DIR}"' EXIT
+###############################################################################
