@@ -1,4 +1,3 @@
-```markdown
 > Lightweight, fault-tolerant scraper for tracking apartment pricing over time.
 
 # Apartment Floorplan Price Scraper
